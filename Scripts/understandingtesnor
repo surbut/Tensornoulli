@@ -1,0 +1,31 @@
+Certainly! I'll break down and explain each gradient calculation step by step.
+
+1. `d_theta`:
+   This is the gradient of the log-likelihood with respect to theta. For each individual (n) and disease (d):
+   - Before the event time (t), the gradient is -pi[n,d,:t]. This comes from the derivative of log(1-pi) with respect to theta, which is -pi.
+   - At the event time (if Y[n,d,t] == 1), we add 1. This comes from the derivative of log(pi) with respect to theta, which is 1/pi, but we're working with theta = logit(pi), so the derivative simplifies to 1.
+
+2. `d_lambda = np.einsum('ndt,dkt->nkt', d_theta, phi)`:
+   This computes the gradient of theta with respect to lambda. It's derived from the equation theta[n,d,t] = sum_k(lambda[n,k,t] * phi[d,k,t]). The gradient is phi[d,k,t].
+
+3. `d_phi = np.einsum('ndt,nkt->dkt', d_theta, lambda_k)`:
+   Similarly, this computes the gradient of theta with respect to phi. From the same equation, the gradient is lambda[n,k,t].
+
+4. `d_U1G = np.einsum('nkt,tr->nkr', d_lambda, self.fixed_U2)`:
+   This computes the gradient of lambda with respect to U1G. It comes from the equation lambda[n,k,t] = sum_r(U1G[n,k,r] * U2[t,r]). The gradient is U2[t,r].
+
+5. `d_W = np.einsum('dkt,tr->dkr', d_phi, self.fixed_U3)`:
+   This computes the gradient of phi with respect to W. It's derived from phi[d,k,t] = sum_r(W[d,k,r] * U3[t,r]). The gradient is U3[t,r].
+
+6. `d_U1 = d_U1G`:
+   Since U1G is a function of U1, the gradient of U1G with respect to U1 is simply passed through.
+
+7. `d_B = np.einsum('nkr,np->pkr', d_U1G, self.G)`:
+   This computes the gradient of U1G with respect to B. It comes from U1G[n,k,r] = U1[n,k,r] + sum_p(G[n,p] * B[p,k,r]) + C[n,k,r]. The gradient is G[n,p].
+
+8. `d_C = d_U1G`:
+   Similar to d_U1, the gradient of U1G with respect to C is simply passed through.
+
+These gradient calculations are based on the chain rule of calculus. We start with the gradient of the log-likelihood with respect to theta (d_theta), and then propagate this gradient backwards through the model, computing the gradient with respect to each parameter along the way.
+
+The use of `einsum` allows for efficient computation of these gradients across multiple dimensions simultaneously. Each `einsum` operation is essentially performing a series of matrix multiplications and summations to compute the gradients.
