@@ -167,35 +167,32 @@ def create_smooth_basis(T, R):
 
 
 def generate_survival_data(pi_true, N, D, T):
-        """
-        Generate survival data based on the true probabilities from the tensor model.
-        
-        Parameters:
-        pi_true (numpy.ndarray): True probabilities from the tensor model, shape (N, D, T)
-        N (int): Number of individuals
-        D (int): Number of diseases
-        T (int): Number of time points
-        
-        Returns:
-        Y (numpy.ndarray): Binary event indicator, shape (N, D, T)
-        S (numpy.ndarray): Time of event or censoring, shape (N, D)
-        """
-        Y = np.zeros((N, D, T), dtype=int)
-        S = np.full((N, D), T - 1)  # Initialize all to last time point (censored)
+    """
+    Generate survival data based on the true probabilities from the tensor model.
+    
+    Parameters:
+    pi_true (numpy.ndarray): True probabilities from the tensor model, shape (N, D, T)
+    N (int): Number of individuals
+    D (int): Number of diseases
+    T (int): Number of time points
+    
+    Returns:
+    Y (numpy.ndarray): Binary event indicator, shape (N, D, T)
+    S (numpy.ndarray): Time of event or censoring, shape (N, D)
+    """
+    Y = np.zeros((N, D, T), dtype=int)
+    S = np.full((N, D), T - 1)  # Initialize all to last time point (censored)
 
-        for n in range(N):
-            for d in range(D):
-                # Normalize probabilities
-                probs = pi_true[n, d, :]
-            
-                # Sample event time
-                event_time = np.random.choice(T, size=1, p=probs)[0]
-            
-                if event_time < T - 1:
-                    Y[n, d, event_time] = 1
-                    S[n, d] = event_time
-        
-        return Y, S
+    for n in range(N):
+        for d in range(D):
+            for t in range(T):
+                # Generate a Bernoulli random variable for each time point
+                if np.random.random() < pi_true[n, d, t]:
+                    Y[n, d, t] = 1
+                    S[n, d] = t
+                    break  # Stop at the first occurrence of the event
+    
+    return Y, S
 # 
 # Set random seed for reproducibility
 
