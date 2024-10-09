@@ -155,7 +155,7 @@ class TensorModelWithGenetics:
 #######
 
 
-    
+    ## beta 'ish', bernstein polynomials
 def create_smooth_basis(T, R):
     t = np.linspace(0, 1, T)
     basis = np.zeros((T, R))
@@ -186,7 +186,7 @@ def generate_survival_data(pi_true, N, D, T):
         for n in range(N):
             for d in range(D):
                 # Normalize probabilities
-                probs = pi_true[n, d, :] / np.sum(pi_true[n, d, :])
+                probs = pi_true[n, d, :]
             
                 # Sample event time
                 event_time = np.random.choice(T, size=1, p=probs)[0]
