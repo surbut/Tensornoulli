@@ -112,7 +112,7 @@ B2 = tl.tenalg.mode_dot(np.repeat(A2[:, :, np.newaxis], T, axis = 2),
 stepsize = .1
 alpha = 0.5; beta = 0.8 # backtracking line search
 rho = 1
-stepsize_B1 = stepsize_B2 = stepsize
+stepsize_B1 = stepsize_B2 = stepsize 
 # the time is the last mode (i.e, t_idx = 1)
 t_idx = len(Y.shape) - 1
 niters = 1000

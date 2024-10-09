@@ -72,17 +72,6 @@ class TensorModelWithGenetics:
         theta = np.einsum('nkt,dkt->ndt', lambda_k, phi)
         return theta
 
-    def survival_likelihood(self, Y, S, theta):
-        pi = expit(theta)
-        log_likelihood = 0
-        for n in range(self.N):
-            for d in range(self.D):
-                t = S[n, d]
-                log_likelihood += np.sum(np.log(1 - pi[n, d, :t] + 1e-10))
-                if Y[n, d, t] == 1:
-                    log_likelihood += np.log(pi[n, d, t] + 1e-10)
-        return log_likelihood
-
 
     def compute_gradients(self, Y, S):
         theta = self.compute_theta()
