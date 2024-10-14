@@ -1,0 +1,342 @@
+---
+title: "Tensor Simulations"
+format:
+  html:
+    toc: true
+    toc-location: body
+date: "today"
+author:
+  - name: "Sarah Urbut"
+embed-resources: true
+toc: true
+toc-expand: 2
+toc-title: Contents
+page-layout: full
+code-fold: true
+editor: visual
+---
+
+# Modeling Individual-Specific Time-Varying Behavior and Transitions Between Disease Signatures
+
+## 1. Multi-Component Temporal Structure Model
+
+We propose a novel tensor decomposition model that captures the multi-component temporal structure of disease progression, incorporating individual variability, topic-specific patterns, and disease-specific temporal evolution, while respecting the constraint that diseases cannot reoccur once they have occurred.
+
+### 1.1 Model Formulation
+
+The tensor of disease probabilities Θ ∈ R\^(N×T×D) is decomposed as:
+
+Θ = \[(U1 ⊗₁ U2) ⊙ (W ⊗₁ U3)\]\^(1,3,2)
+
+Where: - U1 ∈ R\^(N×K×R1): Individual loadings tensor - U2 ∈ R\^(T×R1): Temporal basis functions for individuals - W ∈ R\^(D×K×R2): Disease weights tensor - U3 ∈ R\^(T×R2): Temporal basis functions for diseases - ⊗₁ denotes the mode-1 tensor product - ⊙ denotes the Hadamard (element-wise) product - \[·\]\^(1,3,2) denotes a permutation of the tensor dimensions
+
+### 1.2 Component Interpretations
+
+#### 1.2.1 Individual Topic Loadings: U1 ⊗₁ U2
+
+The mode-1 tensor product U1 ⊗₁ U2 results in a tensor A ∈ R\^(N×K×T), where:
+
+A_ikt = ∑(r=1 to R1) U1_ikr · U2_tr
+
+This component captures the importance of each topic k for individual i at time t: - U1_ikr represents the strength of association between individual i and temporal pattern r within topic k. - U2_tr represents a set of shared temporal basis functions for individuals.
+
+#### 1.2.2 Disease-Topic Temporal Patterns: W ⊗₁ U3
+
+Similarly, the mode-1 tensor product W ⊗₁ U3 results in a tensor B ∈ R\^(D×K×T), where:
+
+B_dkt = ∑(r=1 to R2) W_dkr · U3_tr
+
+This component models disease-specific temporal evolution within topics: - W_dkr represents the weight of temporal pattern r for disease d within topic k. - U3_tr represents a set of shared temporal basis functions for diseases.
+
+### 1.3 Element-wise Formulation
+
+For a single element of the tensor, we have:
+
+θ_idt = ∑(k=1 to K) \[∑(r1=1 to R1) U1_ikr1 · U2_tr1\] · \[∑(r2=1 to R2) W_dkr2 · U3_tr2\]
+
+Where θ_idt is the probability of disease d for individual i at time t.
+
+### 1.4 Survival Likelihood
+
+To incorporate the constraint that diseases cannot reoccur, we use a survival likelihood. For each individual i and disease d, we define:
+
+T_id = min{t : y_idt = 1} or T if the event never occurs
+
+Where y_idt is the observed binary outcome (1 if disease d occurs for individual i at time t, 0 otherwise), and T is the maximum follow-up time.
+
+The survival likelihood for a single individual-disease pair (i,d) is:
+
+L_id = \[∏(t=1 to T_id-1) (1 - θ_idt)\] \* \[θ_idT_id\]\^(I(T_id \< T))
+
+Where I(T_id \< T) is an indicator function that equals 1 if the event occurs before the end of follow-up, and 0 otherwise.
+
+The total log-likelihood for all individuals and diseases is:
+
+log L = ∑(i=1 to N) ∑(d=1 to D) log L_id
+
+## 2. Model Advantages
+
+This formulation offers several key advantages:
+
+1.  Personalized progression: By allowing individuals to have different loadings on temporal patterns (U1_ikr), the model captures personalized disease progression trajectories.
+
+2.  Topic-specific patterns: The model allows for different temporal patterns across topics, capturing the idea that disease progression may vary across different disease categories or systems.
+
+3.  Disease-specific evolution: Through W_dkr, each disease can have its own temporal pattern within each topic, reflecting the unique progression of different diseases.
+
+4.  Shared temporal structures: By using shared basis functions (U2 and U3), the model captures common temporal patterns across individuals and diseases, increasing interpretability and reducing overfitting.
+
+5.  No disease reoccurrence: The survival likelihood ensures that once a disease occurs, it cannot reoccur in the model, aligning with the nature of many chronic conditions.
+
+6.  Flexibility: The model can capture complex interactions between individuals, diseases, and topics over time, while maintaining a structured and interpretable form.
+
+This model structure provides a powerful framework for analyzing complex longitudinal health data, offering insights into both population-level disease patterns and individual-level progression through different health states, while respecting the constraint of non-reoccurring diseases.
+
+```{r}
+# TensorNoulli Model Simulation in R
+
+# Set random seed for reproducibility
+set.seed(42)
+
+# Define dimensions
+N <- 1000  # number of individuals
+D <- 20    # number of diseases
+K <- 4    # number of topics
+R <- 3     # number of temporal bases (early, middle, late)
+T <- 50    # number of time points
+
+# Create smooth temporal bases (U2 and U3) using polynomials
+create_smooth_basis <- function(T, R) {
+  t <- seq(0, 1, length.out = T)
+  basis <- array(0, dim = c(T, R))
+  basis[, 1] <- 4 * (1 - t)^3  # early peaking
+  basis[, 2] <- 27 * t * (1 - t)^2  # middle peaking
+  basis[, 3] <- 4 * t^3  # late peaking
+  return(basis)
+}
+
+U2 <- create_smooth_basis(T, R)
+U3 <- create_smooth_basis(T, R)
+
+matplot(U2, type = "l", xlab = "Time", ylab = "Basis Value", main = "Temporal Basis U2 for disease progression through any topic ")
+
+matplot(U3, type = "l", xlab = "Time", ylab = "Basis Value", main = "Temporal Basis U3 for individual progression through any topic ")
+```
+
+```{r}
+# Create disease weights (W, which 
+W <- array(runif(D * K * R, -10, -8), dim = c(D, K, R))
+for (d in 1:D) {
+  for (k in 1:K) {
+    peak_time <- sample(1:R, 1)
+    W[d, k, peak_time] <- runif(1, -5, -4)  # Make one time period dominant
+  }
+}
+
+
+# Create individual loadings (U1)
+U1 <- array(0, dim = c(N, K, R))
+for (i in 1:N) {
+  for(k in 1:K){
+    peak_time <- sample(1:R, 1)
+    U1[i, k, peak_time] <- runif(1, 1e-10, 2e-10)  # Make one time period dominant
+  }
+}
+
+
+# individual time stuff
+
+# Create individual time weights (U3)
+A = array(0, dim = c(N, K, T))
+for (i in 1:N) {
+  for (k in 1:K) {
+    A[i, k, ] <- U1[i, k, ] %*% t(U2)
+  }
+}
+
+
+
+matplot(t(A[sample(N,1), , ]), type = "l", xlab = "Time", ylab = "Individual Time Weight", main = "Individual Time Weight for Individual 1 and Topic 1")
+
+
+# Create individual time weights (U3)
+B = array(0, dim = c(D, K, T))
+for (d in 1:D) {
+  for (k in 1:K) {
+    B[d, k, ] <- W[d, k, ] %*% t(U3)
+  }
+}
+
+
+
+matplot(t(B[sample(D,1), , ]), type = "l", xlab = "Time", ylab = "Disease Time Weight", main = "Disease Time Weight for Individual 1 and Topic 1")
+
+
+```
+
+```{r}
+# Compute theta
+compute_theta <- function(U1, U2, W, U3) {
+  theta <- array(0, dim = c(N, T, D))
+  for (i in 1:N) {
+    for (d in 1:D) {
+      for (t in 1:T) {
+        for (k in 1:K) {
+          for (r in 1:R) {
+            theta[i, t, d] <- theta[i, t, d] + U1[i, k, r] * U2[t, r] * W[d, k, r] * U3[t, r]
+          }
+        }
+      }
+    }
+  }
+  return(theta)
+}
+
+theta <- compute_theta(U1, U2, W, U3)
+
+```
+
+# 2. Plot topic progression for a few sample diseases across all topics
+
+```{r}
+
+plot_topic_all_diseases <- function(W, U3,topic) {
+
+  disease_time=W[, topic, ] %*% t(U3)
+  matplot(t(disease_time), type = "l", xlab = "Time", ylab = "Probability", main = paste0("All Diseases in Topic",topic))
+    
+}
+
+phi = array(0, dim = c(dim(W)[2], D, T))
+for (k in 1:K) {
+  phi[k, , ] = W[, k, ] %*% t(U3)
+}
+
+
+ sample_disease=sample(D,3)
+  par(mfrow = c(1, K), mar = c(4, 4, 2, 1))
+  for (k in 1:K) 
+   matplot(t(phi[k, , ]), type = "l", xlab = "Time", ylab = "Probability", main = paste0("Topic",k))
+```
+
+# 2. Plot topic progression for a few sample diseases across all topics
+
+```{r}
+ sample_disease=sample(D,3)
+  par(mfrow = c(1, length(sample_disease)), mar = c(4, 4, 2, 1))
+  for (d in sample_disease) 
+   matplot(t(phi[, d, ]), type = "l", xlab = "Time", ylab = "Probability", main = paste0("Disease",d))
+
+  
+
+
+
+
+lambda = array(0, dim = c(N,dim(U1)[2], T))
+
+  for(k in 1:K){
+  lambda[,k, ] = U1[,k,] %*% t(U2)
+}
+# 4. Plot topic progression across topics for a few sample individuals
+
+matplot(t(lambda[sample(N,1),,]), type = "l", xlab = "Time", ylab = "Probability", main = "Individual 1 in all topics")
+
+
+matplot(t(lambda[,1,]), type = "l", xlab = "Time", ylab = "Probability", main = "Topic 1 in all People")
+
+matplot(theta[1,,])
+```
+
+# Plot individual Heatmaps: Theta
+
+```{r}
+par(mfrow=c(1,3))
+image((theta[sample(N,1),,]), main = "Individual 1",xlab="Time",ylab="Disease")
+
+
+image((theta[sample(N,1),,]), main = "Individual 2",xlab="Time",ylab="Disease")
+
+
+image((theta[sample(N,1),,]), main = "Individual 3",xlab="Time",ylab="Disease")
+
+```
+
+### plot y
+
+Here we plot
+
+```{r}
+y = array(0, dim = c(N, D, T))
+
+# Simulate data
+for (i in 1:N) {
+  for (d in 1:D) {
+    for (t in 1:T) {
+      if (sum(y[i, d, 1:t]) == 0) {
+        # Disease hasn't occurred yet
+    
+        # Simulate diagnosis
+        y[i, d, t] <- rbinom(1, 1, plogis(theta[i, t, d]))
+      } else {
+        break  # Stop once disease is diagnosed
+      }
+    }
+  }
+}
+
+image(y[1,,])
+```
+
+Potential soluiton:
+
+```{r,eval=FALSE}
+
+# Gradient function (simplified, not exact)
+gradient <- function(params, y, N, D, K, R, T) {
+  U1 <- array(params[1:(N*K*R)], dim = c(N, K, R))
+  W <- array(params[(N*K*R+1):length(params)], dim = c(D, K, R))
+  
+  theta <- compute_theta(U1, U2, W, U3)
+  error <- y - plogis(theta)
+  
+  grad_U1 <- array(0, dim = c(N, K, R))
+  grad_W <- array(0, dim = c(D, K, R))
+  
+  for (i in 1:N) {
+    for (d in 1:D) {
+      for (t in 1:T) {
+        grad_U1[i, , ] <- grad_U1[i, , ] + error[i, d, t] * W[d, , ] * U2[t, ]
+        grad_W[d, , ] <- grad_W[d, , ] + error[i, d, t] * U1[i, , ] * U3[t, ]
+      }
+    }
+  }
+  
+  return(-c(grad_U1, grad_W))
+}
+
+# Optimization
+initial_params <- c(as.vector(U1), as.vector(W))
+result <- optim(par = initial_params, 
+                fn = neg_log_likelihood, 
+                gr = gradient, 
+                method = "BFGS", 
+                y = y, N = N, D = D, K = K, R = R, T = T,
+                control = list(maxit = 100))
+
+# Extract optimized parameters
+optimized_U1 <- array(result$par[1:(N*K*R)], dim = c(N, K, R))
+optimized_W <- array(result$par[(N*K*R+1):length(result$par)], dim = c(D, K, R))
+
+# Compute final Theta
+final_theta <- compute_theta(optimized_U1, U2, optimized_W, U3)
+
+# Plot results
+par(mfrow = c(2,2))
+image(y[1,,], main = "Observed Data (Individual 1)")
+image(theta[1,,], main = "Initial Theta (Individual 1)")
+image(final_theta[1,,], main = "Final Theta (Individual 1)")
+plot(as.vector(theta), as.vector(final_theta), 
+     xlab = "Initial Theta", ylab = "Final Theta", 
+     main = "Initial vs Final Theta")
+
+```
